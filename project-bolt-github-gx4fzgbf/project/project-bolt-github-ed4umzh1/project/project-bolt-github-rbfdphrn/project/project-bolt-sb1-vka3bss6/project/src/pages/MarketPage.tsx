@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Download, FileSpreadsheet, RefreshCw } from 'lucide-react';
+import { Download, FileSpreadsheet } from 'lucide-react';
 import Delta from '@/components/common/Delta';
 import LastUpdated from '@/components/common/LastUpdated';
 import Panel from '@/components/common/Panel';
@@ -18,7 +18,6 @@ import { buildQuotesCsv, buildExcelXml, downloadCsv, downloadExcel } from '@/ser
 import { buildIndex } from '@/services/market';
 import { buildHybridQuotes } from '@/services/liveData';
 import type { LiveMarketData } from '@/services/liveData';
-import { triggerDataCollection } from '@/services/database';
 import type { Metal, PeriodKey } from '@/types/market';
 
 interface MarketPageProps {
@@ -31,8 +30,6 @@ export default function MarketPage({ updatedAt, favorites, liveData }: MarketPag
   const [period, setPeriod] = useState<PeriodKey>('1M');
   const [query, setQuery] = useState('');
   const [selectedMetal, setSelectedMetal] = useState<Metal | null>(null);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   const quotes = useMemo(
     () => buildHybridQuotes(METALS, period, updatedAt, liveData),
@@ -58,23 +55,6 @@ export default function MarketPage({ updatedAt, favorites, liveData }: MarketPag
           quote.metal.symbol.toLowerCase().includes(normalizedQuery)
       )
     : quotes;
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    setRefreshMsg(null);
-    try {
-      const result = await triggerDataCollection();
-      setRefreshMsg(
-        result.status === 'success'
-          ? `Данные обновлены: ${result.rowsWritten} записей.`
-          : `Частично обновлено: ${result.rowsWritten} записей, ошибок: ${result.errors.length}.`
-      );
-    } catch (err) {
-      setRefreshMsg(err instanceof Error ? err.message : 'Ошибка обновления.');
-    } finally {
-      setRefreshing(false);
-    }
-  };
 
   return (
     <>
@@ -159,15 +139,6 @@ export default function MarketPage({ updatedAt, favorites, liveData }: MarketPag
             />
             <button
               type="button"
-              onClick={handleRefresh}
-              disabled={refreshing}
-              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-lg border border-ink-700 bg-ink-950 px-4 text-sm text-ink-200 transition-colors duration-200 hover:border-brand-500/40 hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} aria-hidden="true" />
-              Обновить
-            </button>
-            <button
-              type="button"
               onClick={() =>
                 downloadCsv(
                   `metals-analytics-market-${period}-${updatedAt.toISOString().slice(0, 10)}.csv`,
@@ -196,11 +167,6 @@ export default function MarketPage({ updatedAt, favorites, liveData }: MarketPag
             </button>
           </div>
         </div>
-        {refreshMsg && (
-          <div className="border-b border-ink-800 bg-ink-950/60 px-5 py-2 text-xs text-ink-300">
-            {refreshMsg}
-          </div>
-        )}
         <QuotesTable
           quotes={visibleQuotes}
           emptyText={`Ничего не найдено по запросу «${query.trim()}»`}

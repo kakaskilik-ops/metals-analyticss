@@ -259,33 +259,3 @@ export async function fetchPriceHistory(
   }));
 }
 
-export async function triggerDataCollection(): Promise<{ status: string; rowsWritten: number; errors: string[] }> {
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
-  if (!supabaseUrl || !anonKey) {
-    throw new Error('Supabase не настроен.');
-  }
-
-  const response = await fetch(`${supabaseUrl}/functions/v1/collect-market-data`, {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${anonKey}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error(`Сервер вернул ошибку ${response.status}`);
-  }
-
-  const result = await response.json();
-  if (!result || typeof result.status !== 'string') {
-    throw new Error('Неожиданный ответ от сервера.');
-  }
-
-  return {
-    status: result.status,
-    rowsWritten: result.rowsWritten ?? 0,
-    errors: result.errors ?? [],
-  };
-}

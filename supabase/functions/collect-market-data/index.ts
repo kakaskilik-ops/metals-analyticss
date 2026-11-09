@@ -27,6 +27,9 @@ const YAHOO_COVERAGE: MetalCoverage[] = [
   { metalId: "hot-rolled", sourceId: "yahoo-finance", sourceSymbol: "HRC=F", exchangeName: "CME", unit: "ton", currency: "USD", marketType: "exchange", region: "США" },
 ];
 
+const QUOTE_STALE_AFTER_MS = 4 * 24 * 60 * 60 * 1000;
+const FRANKFURTER_CURRENCIES = ["EUR", "GBP", "CNY", "SEK", "RUB"];
+
 const UNIT_TO_KG: Record<string, number> = {
   ton: 1000,
   kg: 1,
@@ -126,6 +129,17 @@ Deno.serve(async (req: Request) => {
   }
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+  const { data: authorized, error: authError } = await supabase.rpc("verify_collector_token", {
+    p_token: req.headers.get("x-collector-token") ?? "",
+  });
+  if (authError || authorized !== true) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   const jobStartedAt = new Date().toISOString();
   let totalRows = 0;
   const errors: string[] = [];
@@ -147,6 +161,8 @@ Deno.serve(async (req: Request) => {
         const quotedAt = meta.regularMarketTime
           ? new Date(meta.regularMarketTime * 1000).toISOString()
           : new Date().toISOString();
+        const quoteAgeMs = Date.now() - new Date(quotedAt).getTime();
+        const validationStatus = quoteAgeMs > QUOTE_STALE_AFTER_MS ? "stale" : "valid";
 
         const normalizedPrice = normalizePriceToUsdPerKg(meta.regularMarketPrice, coverage.unit, coverage.currency);
 
@@ -173,7 +189,7 @@ Deno.serve(async (req: Request) => {
               price_type: "futures",
               quality_score: 0.82,
               data_status: "live",
-              validation_status: "valid",
+              validation_status: validationStatus,
               quoted_at: quotedAt,
               retrieved_at: new Date().toISOString(),
               source_url: "https://finance.yahoo.com",
@@ -251,6 +267,10 @@ Deno.serve(async (req: Request) => {
     try {
       const { rates, date } = await fetchFrankfurterRates();
       const rateDate = new Date(date).toISOString();
+
+      for (const currency of FRANKFURTER_CURRENCIES) {
+        if (!(currency in rates)) errors.push(`Frankfurter: no ${currency} rate returned`);
+      }
 
       for (const [quote, rate] of Object.entries(rates)) {
         if (!Number.isFinite(rate) || rate <= 0) continue;

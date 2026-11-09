@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
-import { RefreshCw, CheckCircle2, AlertCircle, XCircle, Clock } from 'lucide-react';
+import { CheckCircle2, AlertCircle, XCircle, Clock } from 'lucide-react';
 import PageHeader from '@/components/layout/PageHeader';
 import Panel from '@/components/common/Panel';
 import { METALS } from '@/data/metals';
 import { MARKET_TYPE_LABELS, SOURCE_STATUS_LABELS } from '@/data/sources';
 import { buildSourceIntegrations } from '@/services/sources';
-import { fetchSourceRows, fetchSourceCoverage, fetchUpdateLogs, triggerDataCollection } from '@/services/database';
+import { fetchSourceRows, fetchSourceCoverage, fetchUpdateLogs } from '@/services/database';
 import { getRateStatus, getRateOrigin, getRateTimestamp } from '@/services/currency';
 import { formatDateTime } from '@/lib/format';
 import { cn } from '@/lib/cn';
@@ -40,8 +40,6 @@ export default function SourcesPage({ liveData }: SourcesPageProps) {
   const [sources, setSources] = useState<SourceIntegration[]>([]);
   const [coverage, setCoverage] = useState<Set<string>>(new Set());
   const [logs, setLogs] = useState<UpdateLogRow[]>([]);
-  const [refreshing, setRefreshing] = useState(false);
-  const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   const loadData = async () => {
     try {
@@ -62,24 +60,6 @@ export default function SourcesPage({ liveData }: SourcesPageProps) {
     loadData();
   }, []);
 
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    setRefreshMsg(null);
-    try {
-      const result = await triggerDataCollection();
-      setRefreshMsg(
-        result.status === 'success'
-          ? `Данные обновлены: ${result.rowsWritten} записей.`
-          : `Частично обновлено: ${result.rowsWritten} записей, ошибок: ${result.errors.length}.`
-      );
-      await loadData();
-    } catch (err) {
-      setRefreshMsg(err instanceof Error ? err.message : 'Ошибка обновления.');
-    } finally {
-      setRefreshing(false);
-    }
-  };
-
   const connectedCount = sources.filter((s) => s.status === 'connected').length;
   const liveMetalIds = liveData ? Array.from(liveData.quotes.keys()).filter((id) => liveData.quotes.get(id)?.dataStatus === 'live') : [];
   const rateStatus = getRateStatus();
@@ -91,24 +71,7 @@ export default function SourcesPage({ liveData }: SourcesPageProps) {
       <PageHeader
         title="Источники данных"
         description="Сравнение подключённых источников, матрица покрытия металлов и мониторинг сбора данных."
-        actions={
-          <button
-            type="button"
-            onClick={handleRefresh}
-            disabled={refreshing}
-            className="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-ink-700 bg-ink-900 px-4 text-sm text-ink-200 transition-colors duration-200 hover:border-brand-500/40 hover:text-brand-400 disabled:cursor-not-allowed disabled:opacity-50"
-          >
-            <RefreshCw className={cn('h-4 w-4', refreshing && 'animate-spin')} aria-hidden="true" />
-            Запустить сбор данных
-          </button>
-        }
       />
-
-      {refreshMsg && (
-        <div className="mb-4 rounded-xl border border-ink-800 bg-ink-900/70 px-4 py-3 text-sm text-ink-300">
-          {refreshMsg}
-        </div>
-      )}
 
       {/* Summary stats */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
