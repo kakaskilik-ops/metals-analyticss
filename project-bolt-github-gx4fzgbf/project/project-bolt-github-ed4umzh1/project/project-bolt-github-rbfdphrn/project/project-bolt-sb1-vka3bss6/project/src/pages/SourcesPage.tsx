@@ -44,7 +44,6 @@ export default function SourcesPage({ liveData }: SourcesPageProps) {
   const [refreshMsg, setRefreshMsg] = useState<string | null>(null);
 
   const loadData = async () => {
-    setLoading(true);
     try {
       const [rows, cov, updateLogs] = await Promise.all([
         fetchSourceRows(),
@@ -56,8 +55,6 @@ export default function SourcesPage({ liveData }: SourcesPageProps) {
       setLogs(updateLogs);
     } catch {
       setSources(buildSourceIntegrations(null));
-    } finally {
-      setLoading(false);
     }
   };
 

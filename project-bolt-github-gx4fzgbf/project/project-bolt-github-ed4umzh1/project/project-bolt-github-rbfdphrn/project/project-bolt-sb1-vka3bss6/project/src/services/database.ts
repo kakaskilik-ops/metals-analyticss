@@ -52,11 +52,6 @@ function asNumber(value: unknown): number {
   return parsed;
 }
 
-function asNullableNumber(value: unknown): number | null {
-  if (value === null || value === undefined) return null;
-  return asNumber(value);
-}
-
 function asTimestamp(value: unknown): number {
   const parsed = Date.parse(asString(value));
   if (Number.isNaN(parsed)) throw new Error('Неожиданный формат даты.');
