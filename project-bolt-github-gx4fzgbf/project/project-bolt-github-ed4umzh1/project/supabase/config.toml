@@ -1,0 +1,3 @@
+[functions.collect-market-data]
+verify_jwt = false
+entrypoint = "./functions/collect-market-data/index.ts"
